@@ -1,17 +1,17 @@
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.EOFException;
-import java.io.IOException;
+import java.io.*;
 import java.net.Socket;
+import java.util.List;
 
 class ClientHandler extends Thread {
-    DataInputStream in;
-    DataOutputStream out;
-    Socket clientSocket;
+    private DataInputStream in;
+    private DataOutputStream out;
+    private Socket clientSocket;
+    private List<ClientHandler> clients;
 
-    public ClientHandler(Socket aClientSocket) {
+    public ClientHandler(Socket aClientSocket, List<ClientHandler> clients) {
         try {
-            clientSocket = aClientSocket;
+            this.clientSocket = aClientSocket;
+            this.clients = clients;
             in = new DataInputStream(clientSocket.getInputStream());
             out = new DataOutputStream(clientSocket.getOutputStream());
         } catch (IOException e) {
@@ -20,12 +20,12 @@ class ClientHandler extends Thread {
     }
 
     public void run() {
-        try { // an echo server
-            String data = in.readUTF(); // read a line of data from the stream
-            System.out.println("Mensagem recebida: " + data);
-            out.writeUTF(data.toUpperCase());
-        } catch (EOFException e) {
-            System.out.println("EOF:" + e.getMessage());
+        try {
+            while (true) {
+                String data = in.readUTF();
+                System.out.println("Mensagem recebida: " + data);
+                broadcastMessage(data);
+            }
         } catch (IOException e) {
             System.out.println("readline:" + e.getMessage());
         } finally {
@@ -33,6 +33,18 @@ class ClientHandler extends Thread {
                 clientSocket.close();
             } catch (IOException e) {
                 /* close failed */}
+        }
+    }
+
+    private void broadcastMessage(String message) {
+        for (ClientHandler client : clients) {
+            try {
+                if (client != this) {
+                    client.out.writeUTF(message);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 }
